@@ -1,0 +1,10 @@
+This function provides the weather of a given location by providing
+the function with the zip code of the given location.
+The function requires zipcode as an argument, however user's often do not
+provide zip code, rather they provide location names.
+If a location is received, we should provide the zip code of that location
+for this function to execute properly.
+
+Example:
+input: what is the weather in delhi?
+output: delhi zip code is 110001, so function should use 110001 as argument for zip code.
