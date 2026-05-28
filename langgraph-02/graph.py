@@ -2,12 +2,13 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END 
 from typing import TypedDict
+import json 
 
 # SETUP THE ENVIRONMENT
 load_dotenv()
 
 llm_developer = ChatOpenAI(
-    model="gpt-5.4"
+    model="gpt-5.4-nano"
 )
 
 llm_qa = ChatOpenAI(
@@ -15,6 +16,13 @@ llm_qa = ChatOpenAI(
 )
 
 MAX_RETRIES = 3
+
+# CREATE FUNCTION TO CONVERT EVERYTHING TO JSON
+def llm_json(prompt):
+    response = llm_qa.invoke(
+        "Return only valid JSON, no markdown.\n" + prompt
+    ).content.strip()
+    return json.loads(response)
 
 # DEFINE THE STATE
 
@@ -30,7 +38,7 @@ class CodeState(TypedDict):
 def developer_agent(state: CodeState):
     prompt = f"""
 You are a python developer.
-Write python code following the requirements of the user:
+Write intentionally bad python code following the requirements of the user:
 {state['user_request']}
 
 If feedback is provided, improve the previous version of the code.
@@ -51,6 +59,8 @@ Return ONLY the full python code.
 # AGENT 2: QA AGENT
 def qa_agent(state: CodeState):
     prompt = f"""
+IMPORTANT: Return only valid JSON. No Markdown.
+
 You a senior Python QA Engineer.
 Evaluate the following Python code for the given requirements:
 - Correctness of the code
@@ -70,7 +80,7 @@ Return output in the following JSON format:
 Code:
 {state['code']}
 """
-    result = llm_qa.invoke(prompt).content.strip()
+    result = llm_json(prompt)
     return {
         "rating": int(result['rating']),
         "feedback": result['feedback']
@@ -95,3 +105,58 @@ def check_rating(state: CodeState):
     if state['retries'] >= MAX_RETRIES:
         return "failed"
     return "retry"
+
+# BUILD YOUR GRAPH
+
+graph = StateGraph(CodeState)
+
+# ASSIGN A NAME TO EVERY NODE
+
+graph.add_node("developer",developer_agent)
+graph.add_node("qa",qa_agent)
+graph.add_node("approved_node", set_approved)
+graph.add_node("failed_node", set_failed)
+graph.add_node("retry_increment", increment_retry)
+
+# DECIDE THE STARTING POINT OF YOUR WORKFLOW
+
+graph.set_entry_point("developer")
+
+# FLOW OF DATA IN THE WORKFLOW 
+
+graph.add_edge("developer","qa")
+graph.add_conditional_edges(
+    "qa",
+    check_rating,
+    {
+        "approved": "approved_node",
+        "failed": "failed_node",
+        "retry": "retry_increment"
+    }
+)
+graph.add_edge("approved_node", END)
+graph.add_edge("failed_node", END)
+graph.add_edge("retry_increment","developer")
+
+# COMPILE THE WORKFLOW
+app = graph.compile()
+
+# TAKE THE USER INPUT
+user_input = input("Enter Python App To Create: ")
+
+# EXECUTE THE WORKFLOW
+result = app.invoke({
+    "user_request": user_input,
+    "code": "",
+    "rating": 0,
+    "feedback": "",
+    "retries": 0,
+    "status": "running"
+})
+
+print("FINAL RESULT")
+print(f"Code: {result['code']}")
+print(f"Rating: {result['rating']}")
+print(f"Retries Used: {result['retries']}")
+print(f"Feedback: {result['feedback']}")
+print(f"Status: {result['status']}")
