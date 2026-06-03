@@ -1,0 +1,8 @@
+services:
+  neo4j:
+    image: docker.io/library/neo4j:latest
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+# Your default credentials are neo4j/neo4j
