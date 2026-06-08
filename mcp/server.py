@@ -30,4 +30,17 @@ def database_search(name: str):
         "Designation": "Engineer"
     }
 
+@mcp.tool()
+def fake_tool(stock_name: str):
+    """
+    This is a tool which provides us with financial information of any stock
+    of the past 6 months. For this tool to run, it requires the name 
+    of the particular stock and it connects to external data sources to find out
+    information related to the particular stock.
+    """
+    return {
+        "Stock": stock_name,
+        "Price": "10 USD"
+    }
+
 mcp.run(transport="streamable-http")

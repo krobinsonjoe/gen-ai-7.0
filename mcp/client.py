@@ -3,6 +3,7 @@ from openai import OpenAI
 import asyncio
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+import json 
 
 # ENVIRONMENT SETUP
 load_dotenv()
@@ -40,7 +41,35 @@ async def main():
     ):
          async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
-            tools = await session.list_tools()
-            print(f"Available tools: {[tool.name for tool in tools.tools]}")
+            tool_list = await session.list_tools()
+            print(tool_list)
+            tools = tool_list.tools 
+            openai_tools = []
+            for t in tools:
+                openai_tools.append(generate_tool_schema(t))
+            response = client.responses.create(
+                model="gpt-5.4-mini",
+                input=query,
+                tools=openai_tools
+            )
+            tool_call = None
+            for item in response.output:
+                if item.type == "function_call":
+                    tool_call = item 
+                    break 
+            if tool_call:
+                tool_name = tool_call.name 
+                args = json.loads(tool_call.arguments)
+                print(f"LLM SELECTED TOOL: {tool_name}")
+                result = await session.call_tool(tool_name,args)
+                print("\nTOOL RESULT\n")
+                for item in result.content:
+                    print(item.text)
+            else:
+                print("\nNO TOOL SELECTED, USING INTERNAL LLM DATA\n")
+                print(response.output_text)
+
+                
+            
 
 asyncio.run(main())
