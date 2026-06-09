@@ -50,6 +50,7 @@ async def main():
             response = client.responses.create(
                 model="gpt-5.4-mini",
                 input=query,
+                instructions=SYSTEM_PROMPT
                 tools=openai_tools
             )
             tool_call = None
